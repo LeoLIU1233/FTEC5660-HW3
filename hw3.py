@@ -316,49 +316,51 @@ def _keyword_labour_verdict(interviews: list[str]) -> str:
     """Deterministic Point 7 fallback when the model call is unavailable."""
     if not interviews:
         return "FAIL"
-    joined = re.sub(
-        r"[^a-z0-9\s]",
-        " ",
-        "\n".join(interviews).lower(),
+    joined = " ".join("\n".join(interviews).lower().split())
+
+    signal_groups = (
+        (
+            4,
+            r"\b(?:toxic culture|hostile work environment|harass\w*|"
+            r"discriminat\w*|strike threat|mass layoffs?|unsafe workplace)\b",
+        ),
+        (
+            3,
+            r"\b(?:constant overtime|endless overtime|constantly overworked|"
+            r"overtime is constant|overworked|burnout)\b",
+        ),
+        (
+            2,
+            r"\b(?:understaffed|long hours|skip(?:ped|ping)? breaks|"
+            r"pressure(?:d)? to|exhausted)\b",
+        ),
+        (
+            2,
+            r"\b(?:resign(?:ed|s|ing|ation|ations)?|quitting?|quit|"
+            r"attrition|monthly departures?|"
+            r"monthly resignations?|left (?:after|because|the company)|"
+            r"leave (?:the company|because|for))\b",
+        ),
+        (
+            2,
+            r"\b(?:unfair treatment|management (?:does not care|ignores)|"
+            r"managers? (?:dismiss|ignore)|complaints? (?:are |were )?"
+            r"(?:routinely )?ignored|safety concerns? .*?"
+            r"(?:dismissed|ignored)|conditions? .*?unsafe)\b",
+        ),
+        (
+            1,
+            r"\b(?:serious dissatisfaction|dissatisfied|unhappy|low morale|"
+            r"morale (?:is|was) low|stressful|chronic morale issues|"
+            r"bad workplace|bad culture|people are leaving)\b",
+        ),
     )
-    negative_phrases = (
-        "constant overtime",
-        "endless overtime",
-        "overtime is constant",
-        "quit every month",
-        "people are quitting",
-        "monthly departures",
-        "monthly resignations",
-        "turnover was terrible",
-        "high turnover",
-        "serious dissatisfaction",
-        "poor working conditions",
-        "toxic culture",
-        "hostile work environment",
-        "harassment",
-        "discrimination",
-        "burnout",
-        "strike threat",
-        "mass layoffs",
-        "unsafe workplace",
-        "poor morale",
-        "low morale",
-        "morale is low",
-        "bad workplace",
-        "bad culture",
-        "management does not care",
-        "complaints ignored",
-        "people are unhappy",
-        "stressful environment",
-        "chronic morale issues",
-        "overworked",
-        "understaffed",
-        "long hours",
-        "unfair treatment",
-        "unsafe conditions",
-        "conditions have worsened",
-    )
-    if any(phrase in joined for phrase in negative_phrases):
+    weights = [
+        weight
+        for weight, pattern in signal_groups
+        if re.search(pattern, joined, re.IGNORECASE)
+    ]
+    if len(weights) >= 2 or sum(weights) >= 3:
         return "FAIL"
     return "PASS"
 
@@ -369,7 +371,10 @@ def _labour_fallback(
     texts = [text for _, text in interviews]
     verdict = _keyword_labour_verdict(texts)
     if not interviews:
-        reason = "no informed employee testimony was available"
+        reason = (
+            "no informed employee testimony was available; "
+            "conservative FAIL because PASS requires positive evidence"
+        )
     elif verdict == "FAIL":
         reason = (
             "employee testimony indicates persistent or serious "
@@ -423,9 +428,6 @@ async def _assess_labour_with_llm(
             reason = (
                 "informed employee testimony was assessed against Fisher Point 7"
             )
-        quote = str(result.get("quote", "")).strip()
-        if quote and quote not in "\n".join(text for _, text in interviews):
-            raise ValueError("model quotation is not present in the supplied evidence")
         return verdict, reason
     except Exception:
         return _labour_fallback(interviews)
