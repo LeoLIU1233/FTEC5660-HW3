@@ -171,7 +171,6 @@ companies with the same tools and the same answer key rules, but different
 names and wording, and scores your 3 points only.
 
 ## Homework 3 solution:
-> to students: this is your report, see the homework description.
 
 ### My 3 points and rules
 **Point 5: Does the company have a worthwhile profit margin?**
@@ -189,14 +188,14 @@ names and wording, and scores your 3 points only.
 *   **PASS Rule:** PASS if informed employee testimony (from current or former employees) supports fair treatment, reasonable working conditions, and healthy labor relations, without credible material contradiction. FAIL for persistently poor treatment, serious dissatisfaction, or dysfunctional relations (e.g., constant overtime, high turnover).
 *   **Evidence:** `interview` tool targeting `working_conditions` topic with `current_employee` and `former_employee` roles.
 
-### Design
+### Financial decision flow
 ![alt text](deepseek_mermaid_20261101_3a2da7.png)
 
-### Design
+### Agent architecture
 ![alt text](deepseek_mermaid_20261101_c6bc1e.png)
 
 > Agent Design Explanation:
->My agent utilizes a Hybrid Routing Architecture tailored to the nature of the Fisher points. For quantitative points (5 & 6), I route the task to a deterministic pipeline using sql_query and Python's Decimal library. This strictly prevents LLM arithmetic hallucinations and guards against incomplete financial data. For the qualitative point (7), the agent gathers unstructured "Scuttlebutt" via the interview tool and routes it to deepseek-v4-flash via LangChain. The LLM is prompted to act as a strict semantic classifier, returning a validated JSON payload with a verdict, reason, and exact quote. To ensure robustness, if the LLM API fails or times out, the system falls back to a local keyword-based heuristic. Furthermore, concurrent execution (asyncio.Semaphore) ensures the 20 companies are processed efficiently within the time limit, and each company is wrapped in a try/except block to isolate failures.
+> My agent uses a hybrid routing architecture tailored to the nature of the Fisher points. For quantitative points (5 & 6), it routes the task to a deterministic pipeline using SQL and Python's `Decimal` library. This prevents LLM arithmetic hallucinations and guards against incomplete financial data. For the qualitative point (7), the agent gathers unstructured "scuttlebutt" through the interview tool and sends it to `deepseek-v4-flash` via LangChain. The LLM acts as a strict semantic classifier and returns a validated JSON payload with a verdict, reason, and exact quote. The four starter tools remain LangChain `StructuredTool` instances and are invoked asynchronously with `ainvoke`. If the LLM API fails or times out, the system falls back to a local keyword-based heuristic. Concurrent execution with `asyncio.Semaphore` processes the 20 companies efficiently, while per-company error handling isolates failures.
 
 ### Results
 > Point Score: 60/60 (100% balanced accuracy) on the public_test dataset.
